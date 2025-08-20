@@ -47,6 +47,22 @@ def handle_assessment_invite(assessment_id: str, token: str): # Added token argu
         st.rerun()
         return
 
+    # Start or fetch a UserAssessment for this student & assessment
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        start_resp = requests.post(
+            f"{API_BASE_URL}/user_assessments/start",
+            headers=headers,
+            params={"assessment_id": int(assessment_id)}
+        )
+        if start_resp.status_code == 200:
+            ua = start_resp.json()
+            st.session_state.user_assessment_id = ua.get("id")
+        else:
+            st.warning("Could not initialize assessment session. You can still view questions.")
+    except Exception:
+        pass
+
     # Set up the session state to start the quiz
     st.session_state.page = "assessment"
     st.session_state.current_assessment = assessment_details

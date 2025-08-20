@@ -4,6 +4,7 @@ import requests
 from student_page import handle_assessment_invite
 from student_stats_utils import fetch_student_scores
 import plotly.express as px
+from streamlit_option_menu import option_menu
 
 API_BASE_URL = "http://localhost:8000/api/v1"
 
@@ -148,23 +149,42 @@ def show_student_dashboard():
         st.sidebar.success(f"🔗 Linked to: {recruiter['name']}")
         st.sidebar.info(f"📧 {recruiter['email']}")
     
-    # Add recruiter code button
-    if st.sidebar.button("🔗 Enter Recruiter Code", key="enter_recruiter_code_btn"):
-        st.session_state.show_recruiter_code_modal = True
+    # --- Sidebar Navigation (styled like Recruiter) ---
+    with st.sidebar:
+        student_choice = option_menu(
+            menu_title="",
+            options=["Assessments", "My Progress", "Statistics", "Enter Recruiter Code", "Logout"],
+            icons=["card-checklist", "graph-up-arrow", "bar-chart-line", "link-45deg", "box-arrow-right"],
+            menu_icon="cast",
+            default_index=0,
+            styles={
+                "container": {"padding": "5px !important", "background-color": "#f0f2f6"},
+                "icon": {"color": "#F97C4F", "font-size": "25px"},
+                "nav-link": {"font-size": "17px", "text-align": "left", "margin":"0px", "--hover-color": "#e6f0ff"},
+                "nav-link-selected": {"background-color": "#4F8BF9", "color": "#fff"},
+            }
+        )
 
-    # --- Sidebar Navigation ---
-    student_choice = st.sidebar.radio(
-        "Navigation",
-        ["Assessments", "My Progress", "Statistics",""],
-        label_visibility="collapsed"
-    )
-
-    # Show recruiter code modal if requested
-    if st.session_state.get('show_recruiter_code_modal', False):
+    # Sidebar actions
+    if student_choice == "Enter Recruiter Code":
         show_recruiter_code_modal()
-        if st.button("❌ Close", key="close_modal_btn"):
-            st.session_state.show_recruiter_code_modal = False
-            st.rerun()
+    elif student_choice == "Logout":
+        try:
+            headers = {"Authorization": f"Bearer {st.session_state.get('token','')}"}
+            requests.post(f"{API_BASE_URL}/auth/logout", headers=headers, timeout=3)
+        except Exception:
+            pass
+        # Clear session state
+        for k in ["token","user","current_assessment_id","test_started","user_answers","start_time","current_assessment","questions","current_question_index","show_results"]:
+            if k in st.session_state:
+                del st.session_state[k]
+        try:
+            if hasattr(st, "query_params"):
+                st.query_params.clear()
+        except Exception:
+            pass
+        st.session_state.page = 'login'
+        st.rerun()
 
     # --- Page Routing based on sidebar selection ---
     if student_choice == "Assessments":

@@ -148,6 +148,11 @@ async def refresh_token(current_user: User = Depends(get_current_user)):
         "username": current_user.username
     }
 
+@router.post("/logout")
+async def logout():
+    """Stateless JWT logout placeholder. Client should discard its token."""
+    return {"message": "Logged out"}
+
 @router.post("/change-password")
 async def change_password(
     old_password: str,

@@ -6,6 +6,7 @@ class AssessmentBase(BaseModel):
     name: str
     duration: int  # in minutes
     description:Optional[str]=None
+    total_marks: Optional[int] = None
 
 class AssessmentCreate(AssessmentBase):
     question_ids: List[int]  # List of question IDs to include

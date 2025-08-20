@@ -15,6 +15,7 @@ class Assessment(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     description = Column(String, nullable=True) # Use Text for longer descriptions
+    total_marks = Column(Integer, nullable=False, default=0)
     status = Column(String, default="draft", nullable=False)
 
     # Relationships

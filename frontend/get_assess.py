@@ -62,14 +62,24 @@ def submit_assessment_answers(assessment_id, answers):
     try:
         headers = {"Authorization": f"Bearer {st.session_state.token}"}
         payload = [
-            {"question_id": q_id, "choice_id": c_id}
+            {"question_id": q_id, "selected_choice_id": c_id}
             for q_id, c_id in answers.items()
         ]
-        response = requests.post(
-            f"{API_BASE_URL}/user-assessments/{assessment_id}/submit",
-            headers=headers,
-            json={"answers": payload}
-        )
+        # If we have a user_assessment_id, use that endpoint
+        user_assessment_id = st.session_state.get("user_assessment_id")
+        if user_assessment_id:
+            response = requests.post(
+                f"{API_BASE_URL}/user_assessments/{user_assessment_id}/submit",
+                headers=headers,
+                json={"answers": payload}
+            )
+        else:
+            # Fallback to assessment scoped submit if available
+            response = requests.post(
+                f"{API_BASE_URL}/user_assessments/{assessment_id}/submit",
+                headers=headers,
+                json={"answers": payload}
+            )
         return response
     except requests.exceptions.RequestException as e:
         st.error(f"Error submitting answers: {e}")
@@ -131,10 +141,19 @@ def show_assessment():
 
     if remaining_time <= 0:
         st.warning("Time's up! Submitting your assessment.")
-        # --- FIX: Save final answer before submitting ---
         if user_choice_text:
             st.session_state.user_answers[question['id']] = choices[user_choice_text]
-        submit_and_show_results()
+        # Submit synchronously here
+        resp = submit_assessment_answers(assessment['id'], st.session_state.user_answers)
+        if resp and resp.status_code == 200:
+            st.success("Your assessment has been submitted successfully!")
+            try:
+                st.balloons()
+            except Exception:
+                pass
+        else:
+            st.error("There was an error submitting your assessment.")
+        st.session_state.page = 'dashboard'
         st.rerun()
 
     minutes, seconds = divmod(remaining_time, 60)
@@ -169,8 +188,17 @@ def show_assessment():
             if st.button("Submit Assessment", type="primary"):
                 if user_choice_text:
                     st.session_state.user_answers[question['id']] = choices[user_choice_text]
-                    submit_and_show_results()
-                    st.rerun()
+                    resp = submit_assessment_answers(assessment['id'], st.session_state.user_answers)
+                    if resp and resp.status_code == 200:
+                        st.success("Your assessment has been submitted successfully!")
+                        try:
+                            st.balloons()
+                        except Exception:
+                            pass
+                        st.session_state.page = 'dashboard'
+                        st.rerun()
+                    else:
+                        st.error("There was an error submitting your assessment.")
                 else:
                     st.warning("Please select an answer before submitting.")
 

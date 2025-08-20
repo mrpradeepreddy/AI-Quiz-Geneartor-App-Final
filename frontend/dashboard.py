@@ -26,6 +26,28 @@ def show_dashboard():
         st.rerun()
         return
 
+    # Sidebar: add Logout button
+    with st.sidebar:
+        if st.button("🚪 Logout", use_container_width=True):
+            try:
+                import requests
+                headers = {"Authorization": f"Bearer {st.session_state.get('token','')}"}
+                requests.post(f"{API_BASE_URL}/auth/logout", headers=headers, timeout=3)
+            except Exception:
+                pass
+            # Clear session state
+            for k in ["token","user","current_assessment_id","test_started","user_answers","start_time","current_assessment","questions","current_question_index","show_results"]:
+                if k in st.session_state:
+                    del st.session_state[k]
+            # Optionally clear query params
+            try:
+                if hasattr(st, "query_params"):
+                    st.query_params.clear()
+            except Exception:
+                pass
+            st.session_state.page = 'login'
+            st.rerun()
+
     # Check the user's role and call the appropriate dashboard function
     if st.session_state.user.get('role', '').lower() in ['recruiter','admin']:
         show_admin_dashboard()

@@ -49,14 +49,25 @@ def create_assessment(
     db.flush()
     db.refresh(db_assessment)
     
-    # Add questions to assessment
+    # Add questions to assessment and accumulate total marks (unless provided)
+    total_marks = 0
     for question_id in assessment_data.question_ids:
         assessment_question = AssessmentQuestion(
             assessment_id=db_assessment.id,
             question_id=question_id
         )
+        # Pull marks from question; default to 1 if missing
+        q = db.query(Question).filter(Question.id == question_id).first()
+        per_marks = q.marks if q and q.marks is not None else 1
+        assessment_question.marks = per_marks
+        total_marks += per_marks
         db.add(assessment_question)
     
+    # Persist total marks into assessment
+    if hasattr(assessment_data, 'total_marks') and assessment_data.total_marks is not None:
+        db_assessment.total_marks = assessment_data.total_marks
+    else:
+        db_assessment.total_marks = total_marks
     db.commit()
     return db_assessment
 
@@ -284,16 +295,31 @@ async def get_assessment_questions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all questions in an assessment."""
+    """Get all questions in an assessment with choices serialized for the frontend."""
     assessment = db.query(Assessment).filter(Assessment.id == assessment_id).first()
     if not assessment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assessment not found"
         )
-    
-    questions = db.query(Question).join(AssessmentQuestion).filter(
-        AssessmentQuestion.assessment_id == assessment_id
-    ).all()
-    
-    return questions 
+
+    # Eager-load questions and choices
+    aq_rows = db.query(AssessmentQuestion, Question).join(Question, AssessmentQuestion.question_id == Question.id).\
+        filter(AssessmentQuestion.assessment_id == assessment_id).all()
+
+    serialized = []
+    for aq, q in aq_rows:
+        # Fetch choices for this question
+        chs = []
+        for ch in q.choices:
+            chs.append({
+                "id": ch.id,
+                "choice_text": ch.choice_text
+            })
+        serialized.append({
+            "id": q.id,
+            "question_text": q.question_text,
+            "choices": chs
+        })
+
+    return serialized
